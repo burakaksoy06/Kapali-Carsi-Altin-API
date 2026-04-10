@@ -25,80 +25,60 @@ export default async function handler(req, res) {
 
   const normalizedList = String(list).toLowerCase();
 
-  const sourceData = {
-    doviz: {
-      USD: {
-        alis: '43.4960',
-        satis: '43.5028',
-        degisim: '+0.20',
-        oran: '+0.0870',
-        yon: 'moneyUp',
-        kur: 'TRY',
-        sembol: '₺'
-      },
-      EUR: {
-        alis: '51.6362',
-        satis: '51.6483',
-        degisim: '-0.96',
-        oran: '-0.4958',
-        yon: 'moneyDown',
-        kur: 'TRY',
-        sembol: '₺'
-      }
-    },
-    altin: {
-      GA: {
-        alis: '4300.12',
-        satis: '4312.45',
-        degisim: '+0.20',
-        oran: '+0.0870',
-        yon: 'moneyUp',
-        kur: 'TRY',
-        sembol: '₺'
-      },
-      C: {
-        alis: '7050.00',
-        satis: '7125.00',
-        degisim: '-0.10',
-        oran: '-0.0210',
-        yon: 'moneyDown',
-        kur: 'TRY',
-        sembol: '₺'
-      }
-    }
-  };
-
-  const selectedList = sourceData[normalizedList];
-
-  if (!selectedList) {
+  if (!['doviz', 'altin'].includes(normalizedList)) {
     return res.status(400).json({
       success: false,
       message: 'Geçersiz list parametresi. Desteklenen değerler: doviz, altin'
     });
   }
 
-  let filteredData = selectedList;
+  // sembol verilmediyse tümünü çek
+  const sembolParam =
+    sembol && String(sembol).trim().length > 0
+      ? String(sembol).trim().toUpperCase()
+      : 'all';
 
-  if (sembol) {
-    const symbols = String(sembol)
-      .split(',')
-      .map((item) => item.trim().toUpperCase())
-      .filter(Boolean);
+  const apiUrl = new URL('https://api.genelpara.com/json/');
+  apiUrl.searchParams.set('list', normalizedList);
+  apiUrl.searchParams.set('sembol', sembolParam);
 
-    filteredData = {};
-
-    for (const code of symbols) {
-      if (selectedList[code]) {
-        filteredData[code] = selectedList[code];
+  try {
+    const response = await fetch(apiUrl.toString(), {
+      headers: {
+        Accept: 'application/json'
       }
-    }
-  }
+    });
 
-  return res.status(200).json({
-    success: true,
-    list: normalizedList,
-    count: Object.keys(filteredData).length,
-    remaining: 938,
-    data: filteredData
-  });
+    if (!response.ok) {
+      return res.status(502).json({
+        success: false,
+        message: 'GenelPara yanıt vermedi',
+        statusCode: response.status
+      });
+    }
+
+    const result = await response.json();
+
+    if (!result?.success || typeof result?.data !== 'object' || result.data === null) {
+      return res.status(502).json({
+        success: false,
+        message: 'GenelPara yanıt formatı beklenenden farklı'
+      });
+    }
+
+    // GenelPara yapısını aynı sözleşmeyle dön
+    return res.status(200).json({
+      success: true,
+      list: normalizedList,
+      count: Object.keys(result.data).length,
+      remaining: typeof result.remaining === 'number' ? result.remaining : null,
+      data: result.data
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Veri alınamadı',
+      error: error.message
+    });
+  }
 }
