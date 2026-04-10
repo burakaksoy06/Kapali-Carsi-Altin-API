@@ -1,16 +1,16 @@
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-  if (req.method !== 'GET') {
+  if (req.method !== "GET") {
     return res.status(405).json({
       success: false,
-      message: 'Sadece GET desteklenir'
+      message: "Sadece GET desteklenir",
     });
   }
 
@@ -19,16 +19,16 @@ export default async function handler(req, res) {
   if (!list) {
     return res.status(400).json({
       success: false,
-      message: 'list parametresi zorunludur'
+      message: "list parametresi zorunludur",
     });
   }
 
   const normalizedList = String(list).toLowerCase();
 
-  if (!['doviz', 'altin'].includes(normalizedList)) {
+  if (!["doviz", "altin"].includes(normalizedList)) {
     return res.status(400).json({
       success: false,
-      message: 'Geçersiz list parametresi. Desteklenen değerler: doviz, altin'
+      message: "Geçersiz list parametresi. Desteklenen değerler: doviz, altin",
     });
   }
 
@@ -36,33 +36,42 @@ export default async function handler(req, res) {
   const sembolParam =
     sembol && String(sembol).trim().length > 0
       ? String(sembol).trim().toUpperCase()
-      : 'all';
+      : "all";
 
-  const apiUrl = new URL('https://api.genelpara.com/json/');
-  apiUrl.searchParams.set('list', normalizedList);
-  apiUrl.searchParams.set('sembol', sembolParam);
+  const apiUrl = new URL("https://api.genelpara.com/json/");
+  apiUrl.searchParams.set("list", normalizedList);
+  apiUrl.searchParams.set("sembol", sembolParam);
 
   try {
     const response = await fetch(apiUrl.toString(), {
+      method: "GET",
       headers: {
-        Accept: 'application/json'
-      }
+        Accept: "application/json,text/plain,*/*",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+        Referer: "https://api.genelpara.com/",
+        Origin: "https://api.genelpara.com",
+      },
     });
 
     if (!response.ok) {
       return res.status(502).json({
         success: false,
-        message: 'GenelPara yanıt vermedi',
-        statusCode: response.status
+        message: "GenelPara yanıt vermedi",
+        statusCode: response.status,
       });
     }
 
     const result = await response.json();
 
-    if (!result?.success || typeof result?.data !== 'object' || result.data === null) {
+    if (
+      !result?.success ||
+      typeof result?.data !== "object" ||
+      result.data === null
+    ) {
       return res.status(502).json({
         success: false,
-        message: 'GenelPara yanıt formatı beklenenden farklı'
+        message: "GenelPara yanıt formatı beklenenden farklı",
       });
     }
 
@@ -71,14 +80,14 @@ export default async function handler(req, res) {
       success: true,
       list: normalizedList,
       count: Object.keys(result.data).length,
-      remaining: typeof result.remaining === 'number' ? result.remaining : null,
-      data: result.data
+      remaining: typeof result.remaining === "number" ? result.remaining : null,
+      data: result.data,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: 'Veri alınamadı',
-      error: error.message
+      message: "Veri alınamadı",
+      error: error.message,
     });
   }
 }
